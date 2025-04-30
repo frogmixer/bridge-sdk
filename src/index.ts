@@ -5,27 +5,39 @@
  * 2. Input amount 
  * 3. Send to ff.io
  **/
-import * as nacl from "tweetnacl"
-import bs58 from "bs58"
 import { createHmac } from 'crypto';
 import { XMLParser } from 'fast-xml-parser';
 
+interface BridgeConfig {
+  from: string;
+  to: string;
+  amount: number;
+  toAddress:string;
+  type?: string;
+  refcode?: string;
+  afftax?:number
+}
+
+const SLEEP_INTERVAL = 10000
+const MAX_LOOP_TIMES = 60
 export class bridge {
   router = {
     baseUrl :"https://ff.io",
     route : {
       price :"/rates/fixed.xml",
-      bridge:"/api/v2/create"
+      bridge:"/api/v2/create",
+      order:"/api/v2/order",
     }
   }
 
   price:any;
   config:any;
+  bridge_info:any;
+  key:any[];
 
-  constructor(config = {
-    keys:[]
-  }) {
+  constructor(config :any) {
     this.config = config;
+    this.key = this.ran_key()
   }
   private get = async(url:string)=>
   {
@@ -37,14 +49,21 @@ export class bridge {
     return response.text();
   }
 
-  private post = async(url:string,body?:any,header?:any)=>
+  private post = async(url:string,body?:any,headers?:any)=>
     {
-      const requestOptions = {
-        method: "GET",
-        redirect: "follow"
-      };
-      const response = await fetch(url, requestOptions as any);
-      return response.text();
+      try{
+        const requestOptions = {
+          headers,
+          method: "POST",
+          redirect: "follow",
+          body:JSON.stringify(body)
+        };
+        const response = await fetch(url, requestOptions as any);
+        return response.json();
+      }catch(e)
+      {
+        return false;
+      }
     }
   private ran_key = () =>
   {
@@ -55,6 +74,10 @@ export class bridge {
     }
     const idx = Math.floor(Math.random() * len);
     return array[idx];
+  }
+
+  private sleep(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
   }
   public init = async()=>
   {
@@ -74,23 +97,9 @@ export class bridge {
     }
   }
 
-  public sign = (
-    data: any,
-    secret: string
-  )=>
-  {
-    let str: string;
-
-    if (typeof data === 'object' && data !== null) {
-      const parts = Object.entries(data)
-        .map(([key, value]) => `${key}=${value}`);
-      str = parts.join('&');
-    } else {
-      str = data;
-    }
-  
-    return createHmac('sha256', secret)
-      .update(str)
+  sign(data: string,API_SECRET:string): string {
+    return createHmac('sha256', API_SECRET)
+      .update(data)
       .digest('hex');
   }
   public estimate =(config = {
@@ -104,37 +113,96 @@ export class bridge {
       let e = this.price[i];
       if(e.from == config.from.toUpperCase() && e.to == config.to.toUpperCase())
         {
-          return e?.tofee ? ((Number(config.amount)*e.out)-Number((e.tofee.split(e.to))[0])) : (Number(config.amount)*e.out)
+          return e;
+          // return e?.tofee ? ((Number(config.amount)*e.out)-Number((e.tofee.split(e.to))[0])) : (Number(config.amount)*e.out)
         }
     }
     return 0;
   }
 
-  public bridge =async (config = {
-    from:"",
-    to:"",
-    amount:0,
-    type:"float",
-    refcode:"nsvhdzsa"
-  })=>{
+
+  public bridge =async (config:BridgeConfig)=>{
+    const {
+      from,
+      to,
+      amount,
+      toAddress,
+      type = "float",
+      refcode = "9jffbqvc",
+      afftax=0
+    } = config;
+
     try{
       const body = {
-        type:config.type,
-        fromCcy:config.from,
-        toCcy:config.to,
+        type:type,
+        fromCcy:from,
+        toCcy:to,
+        toAddress,
         direction:"from",
-        amount:config.amount,
-        refcode:config.refcode
+        amount:amount,
+        refcode:refcode,
+        afftax
       }
-      
-      const k = this.ran_key()
-      return await this.post(this.router.baseUrl+this.router.route.bridge,body,{
-        "X-API-KEY":k,
-        "X-API-SIGN":this.sign(body,k)
-      })
+      const k = this.key;
+      let h = new Headers();
+      h.append('Content-Type','application/json');
+      h.append( "X-API-KEY",k[0]);
+      h.append("X-API-SIGN",this.sign(JSON.stringify(body),k[1]));
+      const b = await this.post(this.router.baseUrl+this.router.route.bridge,body,h)
+      this.bridge_info = b;
+      return b;
     }catch(e)
     {
+      console.log(e)
       return false;
     }
   }
+
+  public bridge_status = async (_id?:string,_token?:string) =>
+  {
+    let id = _id??(this.bridge_info?.data?this.bridge_info.data?.id:false);
+    let token = _token??(this.bridge_info?.data?this.bridge_info.data?.token:false);
+    if(!id || !token)
+    {
+      return false;
+    }
+    const body = {
+      id,
+      token
+    }
+    const k = this.key;
+    let h = new Headers();
+    h.append('Content-Type','application/json');
+    h.append( "X-API-KEY",k[0]);
+    h.append("X-API-SIGN",this.sign(JSON.stringify(body),k[1]));
+    const b = await this.post(this.router.baseUrl+this.router.route.order,body,h)
+    this.bridge_info = b;
+    return b
+  }
+
+  public bridge_confirm = async (_id?:string,_token?:string) =>
+    {
+      let loopTime = 0;
+      while(true)
+      {
+        console.log(this.bridge_info)
+        if(this.bridge_info && this.bridge_info?.data && this.bridge_info.data.status == "DONE")
+        {
+          return true;
+        }
+        let id = _id??(this.bridge_info?.data?this.bridge_info.data?.id:false);
+        let token = _token??(this.bridge_info?.data?this.bridge_info.data?.token:false);
+        if(!id || !token)
+          {
+            return false;
+          }
+        await this.bridge_status(id,token)
+        await this.sleep(SLEEP_INTERVAL)
+        if(loopTime>=MAX_LOOP_TIMES)
+        {
+          return false;
+        }
+        loopTime++;
+      }
+    }
 }
