@@ -108,9 +108,9 @@ export class bridge {
     amount:0
   })=>
   {
-    for(let i in this.price)
+    for(const i in this.price)
     {
-      let e = this.price[i];
+      const e = this.price[i];
       if(e.from == config.from.toUpperCase() && e.to == config.to.toUpperCase())
         {
           return e;
@@ -144,7 +144,7 @@ export class bridge {
         afftax
       }
       const k = this.key;
-      let h = new Headers();
+      const h = new Headers();
       h.append('Content-Type','application/json');
       h.append( "X-API-KEY",k[0]);
       h.append("X-API-SIGN",this.sign(JSON.stringify(body),k[1]));
@@ -160,8 +160,8 @@ export class bridge {
 
   public bridge_status = async (_id?:string,_token?:string) =>
   {
-    let id = _id??(this.bridge_info?.data?this.bridge_info.data?.id:false);
-    let token = _token??(this.bridge_info?.data?this.bridge_info.data?.token:false);
+    const id = _id??(this.bridge_info?.data?this.bridge_info.data?.id:false);
+    const token = _token??(this.bridge_info?.data?this.bridge_info.data?.token:false);
     if(!id || !token)
     {
       return false;
@@ -171,7 +171,7 @@ export class bridge {
       token
     }
     const k = this.key;
-    let h = new Headers();
+    const h = new Headers();
     h.append('Content-Type','application/json');
     h.append( "X-API-KEY",k[0]);
     h.append("X-API-SIGN",this.sign(JSON.stringify(body),k[1]));
@@ -183,15 +183,15 @@ export class bridge {
   public bridge_confirm = async (_id?:string,_token?:string) =>
     {
       let loopTime = 0;
-      while(true)
+      while(loopTime>0)
       {
         console.log(this.bridge_info)
         if(this.bridge_info && this.bridge_info?.data && this.bridge_info.data.status == "DONE")
         {
           return true;
         }
-        let id = _id??(this.bridge_info?.data?this.bridge_info.data?.id:false);
-        let token = _token??(this.bridge_info?.data?this.bridge_info.data?.token:false);
+        const id = _id??(this.bridge_info?.data?this.bridge_info.data?.id:false);
+        const token = _token??(this.bridge_info?.data?this.bridge_info.data?.token:false);
         if(!id || !token)
           {
             return false;
