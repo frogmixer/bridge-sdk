@@ -28,12 +28,6 @@ test("major test", async () => {
   //   )
   // )
 
-  // console.log(
-  //   await b.bridge_status('','')
-  // )
-    // console.log(
-    //   await b.bridge_confirm('','')
-    // )
-
+    
   return 0;
 })

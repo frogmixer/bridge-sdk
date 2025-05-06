@@ -37,6 +37,10 @@ export class bridge {
 
   constructor(config :any) {
     this.config = config;
+    if(config?.baseUrl)
+    {
+      this.router.baseUrl = config.baseUrl
+    }
     this.key = this.ran_key()
   }
   private get = async(url:string)=>
