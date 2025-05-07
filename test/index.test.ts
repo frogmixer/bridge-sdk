@@ -1,4 +1,6 @@
 import { bridge} from "../src";
+jest.setTimeout(1000000000);
+
 test("major test", async () => {
   const b = new bridge({
     keys:[
@@ -22,12 +24,15 @@ test("major test", async () => {
   //       toAddress:"",
   //       amount:0.01,
   //       type:"float",
-  //       refcode:"nsvhdzsa",
-  //       afftax:0.2
+  //       refcode:"",
+  //       afftax:0
   //     }
   //   )
   // )
 
+  // console.log(
+  //   await b.bridge_confirm()
+  // )
     
   return 0;
 })

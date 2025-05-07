@@ -187,12 +187,11 @@ export class bridge {
   public bridge_confirm = async (_id?:string,_token?:string) =>
     {
       let loopTime = 0;
-      while(loopTime>0)
+      while(loopTime>-1)
       {
-        console.log(this.bridge_info)
         if(this.bridge_info && this.bridge_info?.data && this.bridge_info.data.status == "DONE")
         {
-          return true;
+          return this.bridge_info.data;
         }
         const id = _id??(this.bridge_info?.data?this.bridge_info.data?.id:false);
         const token = _token??(this.bridge_info?.data?this.bridge_info.data?.token:false);
